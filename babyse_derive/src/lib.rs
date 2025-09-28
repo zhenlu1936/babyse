@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use proc_macro::TokenStream;
 
 #[proc_macro_derive(BabySerialize)]
@@ -39,7 +37,7 @@ pub fn derive_serialize(input: TokenStream) -> TokenStream {
                     {fields_code}
                     s.pop();
                     s.pop();
-                    s.push_str("}}\n");
+                    s.push_str("}}");
                     s
                 }}
             }}
@@ -90,7 +88,7 @@ pub fn derive_deserialize(input: TokenStream) -> TokenStream {
                             map.insert(k.trim(), v.trim());
                         }}
                     }}
-                    
+
                     Self {{ {fields_code} }} 
                 }}
             }}
