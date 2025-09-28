@@ -1,0 +1,4 @@
+[workspace]
+members = ["babyse_main", "babyse_derive"]
+
+resolver = "3"
