@@ -1,10 +1,16 @@
+use std::fmt::format;
+
 use proc_macro::TokenStream;
 
 #[proc_macro_derive(BabySerialize)]
 pub fn derive_serialize(input: TokenStream) -> TokenStream {
     let input_str = input.to_string();
 
-    let start = input_str.find('{').unwrap() + 1;
+    let brace_pos = input_str.find('{').unwrap();
+    let before_brace = &input_str[..brace_pos].trim();
+    let struct_name = before_brace.split_whitespace().last().unwrap();
+
+    let start = brace_pos + 1;
     let end = input_str.rfind('}').unwrap();
     let fields_str = &input_str[start..end];
 
@@ -15,7 +21,7 @@ pub fn derive_serialize(input: TokenStream) -> TokenStream {
         .filter(|s| !s.is_empty())
         .collect();
 
-    let struct_name = input_str.split_whitespace().nth(1).unwrap();
+    let name_code: String = format!("s.push_str(&format!(\"{struct_name} \"));");
 
     let fields_code: String = field_names
         .iter()
@@ -28,7 +34,12 @@ pub fn derive_serialize(input: TokenStream) -> TokenStream {
             impl BabySerialize for {struct_name} {{
                 fn serialize(&self) -> String {{
                     let mut s = String::new();
+                    {name_code}
+                    s.push_str("{{ ");
                     {fields_code}
+                    s.pop();
+                    s.pop();
+                    s.push_str("}}\n");
                     s
                 }}
             }}
@@ -42,8 +53,11 @@ pub fn derive_serialize(input: TokenStream) -> TokenStream {
 pub fn derive_deserialize(input: TokenStream) -> TokenStream {
     let input_str = input.to_string();
 
-    let struct_name = input_str.split_whitespace().nth(1).unwrap();
-    let start = input_str.find('{').unwrap() + 1;
+    let brace_pos = input_str.find('{').unwrap();
+    let before_brace = &input_str[..brace_pos].trim();
+    let struct_name = before_brace.split_whitespace().last().unwrap();
+
+    let start = brace_pos + 1;
     let end = input_str.rfind('}').unwrap();
     let fields_str = &input_str[start..end];
 
@@ -65,13 +79,18 @@ pub fn derive_deserialize(input: TokenStream) -> TokenStream {
         r#"
             impl BabyDeserialize for {struct_name} {{
                 fn deserialize(s: &str) -> Self {{
+                    let brace_start = s.find('{{').unwrap() + 1;
+                    let brace_end = s.rfind('}}').unwrap();
+                    let inner = &s[brace_start..brace_end].trim();
+
                     let mut map = std::collections::HashMap::new();
-                    for pair in s.split(", ") {{
+                    for pair in inner.split(", ") {{
                         let mut kv = pair.splitn(2, ": ");
                         if let (Some(k), Some(v)) = (kv.next(), kv.next()) {{
                             map.insert(k.trim(), v.trim());
                         }}
                     }}
+                    
                     Self {{ {fields_code} }} 
                 }}
             }}
